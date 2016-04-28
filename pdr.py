@@ -1,71 +1,79 @@
 #!/usr/bin/python
 from z3 import *
 
-def PDR(literals, init, trans, post):
-    R = list()
-    R.append(init)
 
-    while(1==1):
-        c = getBadCube(R[-1], post)
-        if(c != None):
-            if(recBlockCube((len(R) - 1, c), R, trans) == False):
-                return False
+class tCube(Object):
+    #make a tcube object assosciated with frame t. If t is none, have it be frameless
+    def __init__(model, literals, t = None):
+        self.t = t
+        self.cubeLiterals = [l == model[l] for l in model]
+
+    def cube():
+        return And(*self.cubeLiterals)
+
+
+class PDR(Object):
+    def __init__(literals, primes, init, trans, post):
+        self.literals = literals
+        self.primes = primes
+        self.init = init
+        self.trans = trans
+        self.post = post
+        self.R = []
+
+    def run():
+        R = list()
+        R.append(self.init)
+
+        while(1==1):
+            c = getBadCube()
+            if(c != None):
+                if(conflict(c) == False):
+                    return False
+            else: ## found no bad cube, add a new state on to R
+                R.append(True)
+                
+
+    # known as recblockcube in the berkeley paper
+    def conflict(tcube):
+        for i in range(0, len(R)):
+            phi = Not(tcube.cube())
+            s = Solver()
+            s.add(Implies(And(R[i], self.trans), phi))
+            if(s.check() == sat):
+                for j in range(0, i+1):
+                    
+
+
+
+    def propagateBlockedCubes(state):
+        return True
+
+    # Using the top item in the trace, find a model of a bad state
+    # and return a tcube representing it
+    def getBadCube(self):
+        model = And(Not(self.post), R[-1])
+        s = Solver()
+        s.add (model)
+        if(s.check() == sat):
+            return tCube(model, len(R) - 1)
         else:
-            R.append(True)
-            if(propagateBlockedCubes(R) == True):
-                return True
+            return None
 
-# tcube is a tuple of the form (frame depth, cube)
-def recBlockCube(tcube, trace, trans):
-    queue = Queue.PriorityQueue()
-    queue.put(tcube)
-
-    while(len(queue) > 0):
-        s = queue.get()
-
-        # if we have found a counterexample
-        if(s[0] == 0):
-            return False
-
-        if(isBlocked(R[-1], s[1]) == False):
-            assert(isInitial(s[1], R[0]) == False)
-            z = solveRelative(s[1], R[s[0] - 1], trans)
-
-            if(z != None):
-                addBlockedCube(z)
+    def isBlocked(tcube):
+        s = Solver()
+        s.add(And(R[tcube.t], tcube.cube()))
+        return s.check() == unsat
 
 
+    def isInitial(cube, initial):
+        s = Solver()
+        s.add (And(initial, cube))
+        return s.check() == sat
 
-
-    return True
-
-def propagateBlockedCubes(state):
-    return True
-
-# PDR Sat stuff
-def getBadCube(state, post):
-    model = And(Not(post), state)
-    s = Solver()
-    s.add (model)
-    if(s.check() == sat):
-        return model
-    else:
-        return None
-
-def isBlocked(state, cube):
-    s = Solver()
-    s.add (Implies(state, Not(cube)))
-    return s.check() == sat
-
-
-def isInitial(cube, initial):
-    s = Solver()
-    s.add (And(initial, cube))
-    return s.check() == sat
-
-# is it possible to get to 
-def solveRelative(cube, state, trans):
-    return None 
+    # is it possible to get to 
+    def solveRelative(cube, state, trans):
+        return None 
 
 
 
