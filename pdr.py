@@ -1,13 +1,14 @@
 #!/usr/bin/python
 from z3 import *
 
+count = 0
 
 class tCube(object):
     #make a tcube object assosciated with frame t. If t is none, have it be frameless
-    def __init__(self, model, t = None):
+    def __init__(self, model, lMap, t = None):
         self.t = t
         #filter primed variables when creating cube
-        self.cubeLiterals = [Bool(str(l)) == model[l] for l in model if '\'' not in str(l)]
+        self.cubeLiterals = [lMap[str(l)] == model[l] for l in model if '\'' not in str(l)]
 
     def cube(self):
         return And(*self.cubeLiterals)
@@ -17,13 +18,14 @@ class tCube(object):
 
 
 class PDR(object):
-    def __init__(self, literals, init, trans, post):
+    def __init__(self, literals, primes, init, trans, post):
         self.init = init
         self.trans = trans
         self.literals = literals
+        self.lMap = {str(l):l for l in self.literals}
         self.post = post
         self.R = []
-        self.primeMap = [(var, Bool(str(var) + '\'')) for var in literals]
+        self.primeMap = zip(literals, primes)
 
     def run(self):
         self.R = list()
@@ -32,6 +34,7 @@ class PDR(object):
         while(1==1):
             c = self.getBadCube()
             if(c != None):
+                print "Found bad cube:", c
                 # we have a bad cube, which we will try to block 
                 # if the cube is blocked from the previous frame 
                 # we can block it from all previous frames
@@ -46,6 +49,7 @@ class PDR(object):
                 if inv != None:
                     print "Found invariant", inv
                     return True
+                print "Did not find invariant, adding frame", len(self.R)
                 self.R.append(True)
                   
     def checkForInduction(self):
@@ -74,7 +78,7 @@ class PDR(object):
                 # Cube 's' was blocked by image of predecessor:
                 # block cube in all previous frames
                 Q.pop() #remove cube s from Q 
-                for i in range(1, len(self.R)):
+                for i in range(1, s.t+1):
                     self.R[i] = And(self.R[i], Not(s.cube()))
             else:
                 # Cube 's' was not blocked by image of predecessor
@@ -83,6 +87,8 @@ class PDR(object):
         return None
     
     def solveRelative(self, tcube):
+        global count
+        count += 1
         cubeprime = substitute(tcube.cube(), self.primeMap)
         s = Solver()
         s.add(self.R[tcube.t-1])
@@ -90,7 +96,7 @@ class PDR(object):
         s.add(cubeprime)
         if(s.check() != unsat):
             model = s.model()
-            return tCube(model, tcube.t-1)
+            return tCube(model, self.lMap, tcube.t-1)
         return None
 
 
@@ -101,7 +107,7 @@ class PDR(object):
         s = Solver()
         s.add (model)
         if(s.check() == sat):
-            return tCube(s.model(), len(self.R) - 1)
+            return tCube(s.model(), self.lMap, len(self.R) - 1)
         else:
             return None
 
@@ -126,6 +132,9 @@ class PDR(object):
 # yp = Bool('y\'')
 # zp = Bool('z\'')
 
+# variables = [x,y,z]
+# primes = [xp,yp,zp]
+
 # init = And(x,y, Not(z))
 # trans = And(xp == y, zp == x, yp == z)
 # post = Or(x, y, z)
@@ -134,18 +143,18 @@ class PDR(object):
 # solver.run()
 
 
-LEN = 9
-variables = [Bool(str(i)) for i in range(LEN)]
-primes = [Bool(str(i) + '\'') for i in variables]
-on_bits = [0,1,2,5,6,7,8]
-init = And(*([variables[i] for i in on_bits] + [Not(variable) for i, variable in enumerate(variables) if not i in on_bits]))
-trans = Or([And(*[
-   (primes+primes)[j] == Not((variables+variables)[j]) if abs(j-i) <= 1 else
-   (primes+primes)[j] == (variables+variables)[j] for j in range(LEN)]) for i in range(LEN)])
-post = Or(*[var for var in variables])
+# LEN = 9
+# variables = [Bool(str(i)) for i in range(LEN)]
+# primes = [Bool(str(i) + '\'') for i in variables]
+# on_bits = [0,1,2,5,6,7,8]
+# init = And(*([variables[i] for i in on_bits] + [Not(variable) for i, variable in enumerate(variables) if not i in on_bits]))
+# trans = Or([And(*[
+#    (primes+primes)[j] == Not((variables+variables)[j]) if abs(j-i) <= 1 else
+#    (primes+primes)[j] == (variables+variables)[j] for j in range(LEN)]) for i in range(LEN)])
+# post = Or(*[var for var in variables])
 
-solver = PDR(variables, init, trans, post)
-solver.run()
+# solver = PDR(variables, init, trans, post)
+# solver.run()
 
 # variables = [BitVec('x', 3), BitVec('y', 3)]
 # x, y = variables
@@ -157,3 +166,16 @@ solver.run()
 
 # solver = PDR(variables, init, trans, post)
 # solver.run()
+
+variables = [BitVec('x', 6), BitVec('y', 6)]
+x, y = variables
+primes = [BitVec('x\'', 6), BitVec('y\'', 6)]
+xp, yp = primes
+init = And(x == 4, y == 3)
+trans = And(xp == x + y, yp == x - y)
+post = Not(x == 32)
+
+solver = PDR(variables, primes, init, trans, post)
+solver.run()
+
+print count
