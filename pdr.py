@@ -2,90 +2,158 @@
 from z3 import *
 
 
-class tCube(Object):
+class tCube(object):
     #make a tcube object assosciated with frame t. If t is none, have it be frameless
-    def __init__(model, literals, t = None):
+    def __init__(self, model, t = None):
         self.t = t
-        self.cubeLiterals = [l == model[l] for l in model]
+        #filter primed variables when creating cube
+        self.cubeLiterals = [Bool(str(l)) == model[l] for l in model if '\'' not in str(l)]
 
-    def cube():
+    def cube(self):
         return And(*self.cubeLiterals)
 
+    def __repr__(self):
+        return str(self.t) + ": " + str(self.cubeLiterals)
 
-class PDR(Object):
-    def __init__(literals, primes, init, trans, post):
-        self.literals = literals
-        self.primes = primes
+
+class PDR(object):
+    def __init__(self, literals, init, trans, post):
         self.init = init
         self.trans = trans
+        self.literals = literals
         self.post = post
         self.R = []
+        self.primeMap = [(var, Bool(str(var) + '\'')) for var in literals]
 
-    def run():
-        R = list()
-        R.append(self.init)
+    def run(self):
+        self.R = list()
+        self.R.append(self.init)
 
         while(1==1):
-            c = getBadCube()
+            c = self.getBadCube()
             if(c != None):
-                if(conflict(c) == False):
+                # we have a bad cube, which we will try to block 
+                # if the cube is blocked from the previous frame 
+                # we can block it from all previous frames
+                trace = self.recBlockCube(c)
+                if trace != None:
+                    for f in trace:
+                        print f
                     return False
-            else: ## found no bad cube, add a new state on to R
-                R.append(True)
-                
+            else: ## found no bad cube, add a new state on to R after checking for induction
+                print "Checking for induction"
+                inv = self.checkForInduction()
+                if inv != None:
+                    print "Found invariant", inv
+                    return True
+                self.R.append(True)
+                  
+    def checkForInduction(self):
+        for frame in self.R:
+            s=Solver()
+            s.add(self.trans)
+            s.add(frame)
+            s.add(Not(substitute(frame, self.primeMap)))
+            if s.check() == unsat:
+                return frame
+        return None
 
-    # known as recblockcube in the berkeley paper
-    def conflict(tcube):
-        for i in range(0, len(R)):
-            phi = Not(tcube.cube())
-            s = Solver()
-            s.add(Implies(And(R[i], self.trans), phi))
-            if(s.check() == sat):
-                for j in range(0, i+1):
-                    
+    #loosely based on the recBlockCube method from the berkely paper, without some of the optimizations
+    def recBlockCube(self, s0):
+        Q = []
+        Q.append(s0);
+        while (len(Q) > 0):
+            s = Q[-1]
+            if (s.t == 0):
+                # Found counterexample, may extract it here
+                return Q
 
+            z = self.solveRelative(s)
 
+            if (z == None):
+                # Cube 's' was blocked by image of predecessor:
+                # block cube in all previous frames
+                Q.pop() #remove cube s from Q 
+                for i in range(1, len(self.R)):
+                    self.R[i] = And(self.R[i], Not(s.cube()))
+            else:
+                # Cube 's' was not blocked by image of predecessor
+                # it will stay on the stack, and z will we added on top
+                Q.append(z)
+        return None
+    
+    def solveRelative(self, tcube):
+        cubeprime = substitute(tcube.cube(), self.primeMap)
+        s = Solver()
+        s.add(self.R[tcube.t-1])
+        s.add(self.trans)
+        s.add(cubeprime)
+        if(s.check() != unsat):
+            model = s.model()
+            return tCube(model, tcube.t-1)
+        return None
 
-    def propagateBlockedCubes(state):
-        return True
 
     # Using the top item in the trace, find a model of a bad state
     # and return a tcube representing it
     def getBadCube(self):
-        model = And(Not(self.post), R[-1])
+        model = And(Not(self.post), self.R[-1])
         s = Solver()
         s.add (model)
         if(s.check() == sat):
-            return tCube(model, len(R) - 1)
+            return tCube(s.model(), len(self.R) - 1)
         else:
             return None
 
-    def isBlocked(tcube):
+    # Is a cube ruled out given the current state R[N]?
+    def isBlocked(self, tcube):
         s = Solver()
         s.add(And(R[tcube.t], tcube.cube()))
         return s.check() == unsat
 
 
-    def isInitial(cube, initial):
+    def isInitial(self, cube, initial):
         s = Solver()
         s.add (And(initial, cube))
         return s.check() == sat
 
-    # is it possible to get to 
-    def solveRelative(cube, state, trans):
-        return None 
 
 
+# x = Bool('x')
+# y = Bool('y')
+# z = Bool('z')
+# xp = Bool('x\'')
+# yp = Bool('y\'')
+# zp = Bool('z\'')
 
-x = Bool('x')
-y = Bool('y')
-z = Bool('z')
-xp = Bool('x\'')
-yp = Bool('y\'')
-zp = Bool('z\'')
+# init = And(x,y, Not(z))
+# trans = And(xp == y, zp == x, yp == z)
+# post = Or(x, y, z)
 
-init = And(x,y, Not(z))
-trans = And(xp == y, zp == x, yp == z)
-post = Or(x,y,z)
+# solver = PDR([x,y,z], init, trans, post)
+# solver.run()
 
-PDR([], init, trans, post)
+
+LEN = 9
+variables = [Bool(str(i)) for i in range(LEN)]
+primes = [Bool(str(i) + '\'') for i in variables]
+on_bits = [0,1,2,5,6,7,8]
+init = And(*([variables[i] for i in on_bits] + [Not(variable) for i, variable in enumerate(variables) if not i in on_bits]))
+trans = Or([And(*[
+   (primes+primes)[j] == Not((variables+variables)[j]) if abs(j-i) <= 1 else
+   (primes+primes)[j] == (variables+variables)[j] for j in range(LEN)]) for i in range(LEN)])
+post = Or(*[var for var in variables])
+
+solver = PDR(variables, init, trans, post)
+solver.run()
+
+# variables = [BitVec('x', 3), BitVec('y', 3)]
+# x, y = variables
+# primes = [BitVec('x\'', 3), BitVec('y\'', 3)]
+# xp, yp = primes
+# init = And(x == 4, y == 3)
+# trans = And(xp == x + y, yp == x - y)
+# post = Not(x == 2)
+
+# solver = PDR(variables, init, trans, post)
+# solver.run()
