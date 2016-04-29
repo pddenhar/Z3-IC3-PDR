@@ -12,7 +12,7 @@ class tCube(object):
         return And(*self.cubeLiterals)
 
     def __repr__(self):
-        return str(self.t) + ": " + str(self.cubeLiterals)
+        return str(self.t) + ": " + str(sorted(self.cubeLiterals, key=str))
 
 
 class PDR(object):
@@ -32,12 +32,13 @@ class PDR(object):
         while(1==1):
             c = self.getBadCube()
             if(c != None):
-                print "Found bad cube:", c
+                #print "Found bad cube:", c
                 # we have a bad cube, which we will try to block 
                 # if the cube is blocked from the previous frame 
                 # we can block it from all previous frames
                 trace = self.recBlockCube(c)
                 if trace != None:
+                    print "Found trace ending in bad state:"
                     for f in trace:
                         print f
                     return False
@@ -45,7 +46,7 @@ class PDR(object):
                 print "Checking for induction"
                 inv = self.checkForInduction()
                 if inv != None:
-                    print "Found invariant", inv
+                    print "Found inductive invariant:", simplify(inv)
                     return True
                 print "Did not find invariant, adding frame", len(self.R)
                 self.R.append(True)

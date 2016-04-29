@@ -7,6 +7,7 @@ Running `python ./test.py` will run all PDR tests. Running `./test.py -ls` will 
 `./test.py <testname>` will run a single named test.
 
 # How to use PDR prover
+```
 x = Bool('x')
 xp = Bool('x\'')
 
@@ -19,3 +20,4 @@ post = Or(x, Not(x))
 
 solver = PDR(variables, primes, init, trans, post)
 solver.run()
+```
