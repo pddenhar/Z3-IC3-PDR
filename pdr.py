@@ -1,15 +1,13 @@
 #!/usr/bin/python
 from z3 import *
 
-count = 0
-
 class tCube(object):
     #make a tcube object assosciated with frame t. If t is none, have it be frameless
     def __init__(self, model, lMap, t = None):
         self.t = t
-        #filter primed variables when creating cube
+        #filter out primed variables when creating cube
         self.cubeLiterals = [lMap[str(l)] == model[l] for l in model if '\'' not in str(l)]
-
+    # return the conjection of all literals in this cube
     def cube(self):
         return And(*self.cubeLiterals)
 
@@ -87,8 +85,6 @@ class PDR(object):
         return None
     
     def solveRelative(self, tcube):
-        global count
-        count += 1
         cubeprime = substitute(tcube.cube(), self.primeMap)
         s = Solver()
         s.add(self.R[tcube.t-1])
@@ -123,26 +119,7 @@ class PDR(object):
         s.add (And(initial, cube))
         return s.check() == sat
 
-
-
-# x = Bool('x')
-# y = Bool('y')
-# z = Bool('z')
-# xp = Bool('x\'')
-# yp = Bool('y\'')
-# zp = Bool('z\'')
-
-# variables = [x,y,z]
-# primes = [xp,yp,zp]
-
-# init = And(x,y, Not(z))
-# trans = And(xp == y, zp == x, yp == z)
-# post = Or(x, y, z)
-
-# solver = PDR([x,y,z], init, trans, post)
-# solver.run()
-
-
+# ALEX'S EXAMPLES: DO NOT TURN IN
 # LEN = 9
 # variables = [Bool(str(i)) for i in range(LEN)]
 # primes = [Bool(str(i) + '\'') for i in variables]
@@ -167,15 +144,13 @@ class PDR(object):
 # solver = PDR(variables, init, trans, post)
 # solver.run()
 
-variables = [BitVec('x', 6), BitVec('y', 6)]
-x, y = variables
-primes = [BitVec('x\'', 6), BitVec('y\'', 6)]
-xp, yp = primes
-init = And(x == 4, y == 3)
-trans = And(xp == x + y, yp == x - y)
-post = Not(x == 32)
+# variables = [BitVec('x', 6), BitVec('y', 6)]
+# x, y = variables
+# primes = [BitVec('x\'', 6), BitVec('y\'', 6)]
+# xp, yp = primes
+# init = And(x == 4, y == 3)
+# trans = And(xp == x + y, yp == x - y)
+# post = Not(x == 32)
 
-solver = PDR(variables, primes, init, trans, post)
-solver.run()
-
-print count
+# solver = PDR(variables, primes, init, trans, post)
+# solver.run()
