@@ -32,7 +32,7 @@ def Swapper():
 #
 # This one can take quite a while to run
 def BooleanShifter():
-	len = 9
+	len = 10
 	variables = [Bool(str(i)) for i in range(len)]
 	primes = [Bool(str(i) + '\'') for i in variables]
 
@@ -48,9 +48,9 @@ def BooleanShifter():
 # Each iteration, add the value of BBBBB to AAAAA
 # incrementing it
 # In this example, BBBBB is 00001 and the postcondition is that
-# AAAAA is not 11111, which is unsafe
+# AAAAA is not 11111, which is unsafe after 32 frames
 def BooleanIncrementer():
-	len = 10
+	len = 9
 	variables = [Bool(str(i)) for i in range(len)]
 	primes = [Bool(str(i) + '\'') for i in variables]
 	init = And(*[Not(variables[i]) for i in range(len-1)] + [variables[-1]])

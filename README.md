@@ -4,8 +4,10 @@ Peter Den Hartog, 2016.
 
 # How to run tests
 Running `python ./test.py` will run all PDR tests. Running `./test.py -ls` will list all available tests.
+
 `./test.py <testname>` will run a single named test.
 
+`./test.py -h` will display command line help.
 # How to use PDR prover
 ```
 x = Bool('x')
