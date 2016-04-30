@@ -1,6 +1,10 @@
 #!/usr/bin/python
+
+# Implementation of the PDR algorithm by Peter Den Hartog. Apr 28, 2016
+
 from z3 import *
 
+# a tcube is a conjunction of literals assosciated with a given frame (t) in the trace
 class tCube(object):
     #make a tcube object assosciated with frame t. If t is none, have it be frameless
     def __init__(self, model, lMap, t = None):
@@ -50,7 +54,8 @@ class PDR(object):
                     return True
                 print "Did not find invariant, adding frame", len(self.R)
                 self.R.append(True)
-                  
+    
+    # Check all images in R to see if one is inductive  
     def checkForInduction(self):
         for frame in self.R:
             s=Solver()
@@ -68,9 +73,11 @@ class PDR(object):
         while (len(Q) > 0):
             s = Q[-1]
             if (s.t == 0):
-                # Found counterexample, may extract it here
+                # If a bad cube was not blocked all the way down to R[0]
+                # we have found a counterexample and may extract the stack trace
                 return Q
 
+            # solve if cube s was blocked by the image of the frame before it
             z = self.solveRelative(s)
 
             if (z == None):
@@ -81,17 +88,18 @@ class PDR(object):
                     self.R[i] = And(self.R[i], Not(s.cube()))
             else:
                 # Cube 's' was not blocked by image of predecessor
-                # it will stay on the stack, and z will we added on top
+                # it will stay on the stack, and z (the model which allowed transition to s) will we added on top
                 Q.append(z)
         return None
     
+    #for tcube, check if cube is blocked by R[t-1] AND trans
     def solveRelative(self, tcube):
         cubeprime = substitute(tcube.cube(), self.primeMap)
         s = Solver()
         s.add(self.R[tcube.t-1])
         s.add(self.trans)
         s.add(cubeprime)
-        if(s.check() != unsat):
+        if(s.check() != unsat): #cube was not blocked, return new tcube containing the model
             model = s.model()
             return tCube(model, self.lMap, tcube.t-1)
         return None
@@ -99,6 +107,7 @@ class PDR(object):
 
     # Using the top item in the trace, find a model of a bad state
     # and return a tcube representing it
+    # or none if all bad states are blocked
     def getBadCube(self):
         model = And(Not(self.post), self.R[-1])
         s = Solver()
@@ -119,39 +128,3 @@ class PDR(object):
         s = Solver()
         s.add (And(initial, cube))
         return s.check() == sat
-
-# ALEX'S EXAMPLES: DO NOT TURN IN
-# LEN = 9
-# variables = [Bool(str(i)) for i in range(LEN)]
-# primes = [Bool(str(i) + '\'') for i in variables]
-# on_bits = [0,1,2,5,6,7,8]
-# init = And(*([variables[i] for i in on_bits] + [Not(variable) for i, variable in enumerate(variables) if not i in on_bits]))
-# trans = Or([And(*[
-#    (primes+primes)[j] == Not((variables+variables)[j]) if abs(j-i) <= 1 else
-#    (primes+primes)[j] == (variables+variables)[j] for j in range(LEN)]) for i in range(LEN)])
-# post = Or(*[var for var in variables])
-
-# solver = PDR(variables, init, trans, post)
-# solver.run()
-
-# variables = [BitVec('x', 3), BitVec('y', 3)]
-# x, y = variables
-# primes = [BitVec('x\'', 3), BitVec('y\'', 3)]
-# xp, yp = primes
-# init = And(x == 4, y == 3)
-# trans = And(xp == x + y, yp == x - y)
-# post = Not(x == 2)
-
-# solver = PDR(variables, init, trans, post)
-# solver.run()
-
-# variables = [BitVec('x', 6), BitVec('y', 6)]
-# x, y = variables
-# primes = [BitVec('x\'', 6), BitVec('y\'', 6)]
-# xp, yp = primes
-# init = And(x == 4, y == 3)
-# trans = And(xp == x + y, yp == x - y)
-# post = Not(x == 32)
-
-# solver = PDR(variables, primes, init, trans, post)
-# solver.run()
