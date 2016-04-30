@@ -47,7 +47,7 @@ class PDR(object):
                         print f
                     return False
             else: ## found no bad cube, add a new state on to R after checking for induction
-                print "Checking for induction"
+                #print "Checking for induction"
                 inv = self.checkForInduction()
                 if inv != None:
                     print "Found inductive invariant:", simplify(inv)
@@ -85,6 +85,7 @@ class PDR(object):
                 # block cube in all previous frames
                 Q.pop() #remove cube s from Q 
                 for i in range(1, s.t+1):
+                    #if not self.isBlocked(s, i):
                     self.R[i] = And(self.R[i], Not(s.cube()))
             else:
                 # Cube 's' was not blocked by image of predecessor
@@ -117,10 +118,10 @@ class PDR(object):
         else:
             return None
 
-    # Is a cube ruled out given the current state R[N]?
-    def isBlocked(self, tcube):
+    # Is a cube ruled out given the state R[t]?
+    def isBlocked(self, tcube, t):
         s = Solver()
-        s.add(And(R[tcube.t], tcube.cube()))
+        s.add(And(self.R[t], tcube.cube()))
         return s.check() == unsat
 
 
